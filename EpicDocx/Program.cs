@@ -8,22 +8,25 @@
     using System.Linq;
     using System.Net.Http;
     using System.Net.Http.Headers;
+    using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Text;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
+
     using Newtonsoft.Json;
+
     using Word = Microsoft.Office.Interop.Word;
-    using System.Windows.Forms;
 
     public class Program
     {
-        private const string RelationsQueryPath = "wit/wiql?api-version=2.3"; //"queries/Shared Queries/EFUs";
-        private const string WorkItemsQueryPath = "wit/workitems?ids={0}&api-version=2.3"; //"queries/Shared Queries/EFUs";
+        private const string RelationsQueryPath = "wit/wiql?api-version=4.1-preview"; //"queries/Shared Queries/EFUs";
+        private const string WorkItemsQueryPath = "wit/workitems?ids={0}&api-version=4.1-preview"; //"queries/Shared Queries/EFUs";
         private const string SecurityTokensUrl = "_details/security/tokens";
 
-        private static readonly string TeamSite = ConfigurationManager.AppSettings["TeamSite"];
-        private static readonly string TeamProject = ConfigurationManager.AppSettings["TeamProject"];
+        private static readonly string Account = ConfigurationManager.AppSettings["Account"];
+        private static readonly string Project = ConfigurationManager.AppSettings["Project"];
+        private static readonly string AreaPath = ConfigurationManager.AppSettings["AreaPath"];
         private static readonly string WorkItemsQuery = ConfigurationManager.AppSettings["WorkItemsQuery"];
         private static readonly string WordTemplate = ConfigurationManager.AppSettings["WordTemplate"];
         private static readonly string PersonalAccessToken = ConfigurationManager.AppSettings["PersonalAccessToken"];
@@ -32,6 +35,7 @@
         private const string WorkItemsJson = "./WorkItems.json";
         private const string HtmlNewLine = "<br/>";
         private const string Dot = ". ";
+        private const int Max = 200;
         private static List<EFU> efus = null;
 
         [STAThread]
@@ -40,7 +44,6 @@
             MainAsync(args).Wait();
             GenerateDoc(string.Join(HtmlNewLine, efus.Select(GetContent)));
             Console.ReadLine();
-            Process.Start(Environment.CurrentDirectory);
         }
 
         public static async Task MainAsync(string[] args)
@@ -75,18 +78,18 @@
             if (local)
             {
                 efus = JsonConvert.DeserializeObject<List<EFU>>(File.ReadAllText(WorkItemsJson));
-                Console.WriteLine($"Loaded {efus?.Count} work-items from {WorkItemsJson}");
+                Console.WriteLine($"Loaded {efus?.Count} Work-items from {WorkItemsJson}");
                 await GetWorkItems();
             }
             else
             {
                 if (string.IsNullOrWhiteSpace(PersonalAccessToken))
                 {
-                    var tokenUrl = $"{TeamSite}{SecurityTokensUrl}";
+                    var tokenUrl = $"{Account}{SecurityTokensUrl}";
                     Console.WriteLine($"PersonalAccessToken is blank in the config!\nHit ENTER to generate it (select 'All Scopes') at: {tokenUrl}");
                     Console.ReadLine();
                     Process.Start(tokenUrl);
-                    Console.WriteLine($"Update 'PersonalAccessToken' value in VstsUwpPackageInstaller.config with the generated/copied token and restart the app.");
+                    Console.WriteLine($"Update 'PersonalAccessToken' value in EpicDocx.exe.config with the generated/copied token and restart the app.");
                 }
                 else
                 {
@@ -100,7 +103,7 @@
             Console.WriteLine("Error: " + error);
         }
 
-        private async static Task GetWorkItems()
+        private static async Task GetWorkItems()
         {
             // GetWorkItemsByQuery(workItems);
             await GetWorkItemsByStoredQuery(); //.ContinueWith(ContinuationAction);
@@ -116,8 +119,8 @@
             if (efus == null)
             {
                 efus = new List<EFU>();
-                var wis = await GetData<WiqlRelationList>(RelationsQueryPath, string.Empty, "{\"query\": \"" + string.Format(WorkItemsQuery, TeamProject) + "\"}");
-                Console.WriteLine($"Workitem relations fetched: {wis.workItemRelations.Length}");
+                var wis = await GetData<WiqlRelationList>(RelationsQueryPath, Project, "{\"query\": \"" + string.Format(WorkItemsQuery, Project, string.IsNullOrWhiteSpace(AreaPath) ? Project : AreaPath) + "\"}");
+                Console.WriteLine($"Work-item relations fetched: {wis.workItemRelations.Length}");
                 var rootItems = wis.workItemRelations.Where(x => x.source == null).ToList();
                 await IterateWorkItems(rootItems, null, wis);
                 File.WriteAllText(WorkItemsJson, JsonConvert.SerializeObject(efus));
@@ -131,7 +134,7 @@
                 var workitems = await GetWorkItems(relations.ToList());
                 foreach (var wi in workitems)
                 {
-                    Console.WriteLine($" {wi.fields.SystemWorkItemType} ".PadRight(13)  + wi.id.ToString().PadLeft(4) + Dot + wi.fields.SystemTitle + $" [{wi.fields.SystemTags}]");
+                    Console.WriteLine($" {wi.fields.SystemWorkItemType} ".PadRight(13) + wi.id.ToString().PadLeft(4) + Dot + wi.fields.SystemTitle + $" [{wi.fields.SystemTags}]");
                     var efu = new EFU
                     {
                         Id = wi.id,
@@ -152,7 +155,7 @@
 
         private static async Task<WorkItem> GetWorkItem(WiqlWorkitem item)
         {
-            var result = await GetData<WorkItem>(item.url, string.Empty, string.Empty);
+            var result = await GetData<WorkItem>(item.url, Project, string.Empty);
             if (result != null)
             {
                 Console.WriteLine(result.id.ToString().PadLeft(4) + $" {result.fields.SystemWorkItemType} - ".PadLeft(14) + result.fields.SystemTitle);
@@ -162,29 +165,45 @@
             return null;
         }
 
-        private static async Task<List<WorkItem>> GetWorkItems(List<WorkitemRelation> relations)
+        private static async Task<List<WorkItem>> GetWorkItems(List<WorkitemRelation> items)
         {
-            if (relations != null && relations.Any())
+            var result = new List<WorkItem>();
+            var splitItems = SplitList(items);
+            if (splitItems?.Any() == true)
             {
-                var builder = new StringBuilder();
-                foreach (var item in relations.Select(x => x.target))
+                foreach (var relations in splitItems)
                 {
-                    builder.Append(item.id.ToString()).Append(',');
-                }
-
-                var ids = builder.ToString().TrimEnd(',');
-
-                if (!string.IsNullOrWhiteSpace(ids))
-                {
-                    var workItems = await GetData<WorkItems>(string.Format(WorkItemsQueryPath, ids), string.Empty, string.Empty);
-                    if (workItems != null)
+                    var builder = new StringBuilder();
+                    foreach (var item in relations.Select(x => x.target))
                     {
-                        return workItems.Items.ToList();
+                        builder.Append(item.id.ToString()).Append(',');
+                    }
+
+                    var ids = builder.ToString().TrimEnd(',');
+                    if (!string.IsNullOrWhiteSpace(ids))
+                    {
+                        var workItems = await GetData<WorkItems>(string.Format(WorkItemsQueryPath, ids), Project, string.Empty);
+                        if (workItems != null)
+                        {
+                            result.AddRange(workItems.Items);
+                        }
                     }
                 }
             }
 
-            return null;
+            return result;
+        }
+
+        // Credit: https://stackoverflow.com/a/11463800
+        public static IEnumerable<List<T>> SplitList<T>(List<T> list, int limit = Max)
+        {
+            if (list?.Any() == true)
+            {
+                for (var i = 0; i < list.Count; i += limit)
+                {
+                    yield return list.GetRange(i, Math.Min(limit, list.Count - i));
+                }
+            }
         }
 
         private static async Task GetWorkItemsByQuery(List<WorkItem> workItems = null)
@@ -192,11 +211,11 @@
             if (workItems == null)
             {
                 workItems = new List<WorkItem>();
-                // var wis = await GetData<WiqlList>(WorkItemsQueryPath, TeamProject, string.Empty);
-                var wis = await GetData<WiqlList>(RelationsQueryPath, string.Empty, "{\"query\": \"" + string.Format(WorkItemsQuery, TeamProject) + "\"}");
+                // var wis = await GetData<WiqlList>(WorkItemsQueryPath, Project, string.Empty);
+                var wis = await GetData<WiqlList>(RelationsQueryPath, Project, "{\"query\": \"" + string.Format(WorkItemsQuery, Project, string.IsNullOrWhiteSpace(AreaPath) ? Project : AreaPath) + "\"}");
                 foreach (var wi in wis.workItems)
                 {
-                    var result = await GetData<WorkItem>(wi.url, string.Empty, string.Empty);
+                    var result = await GetData<WorkItem>(wi.url, Project, string.Empty);
                     if (result != null)
                     {
                         Console.WriteLine(result.id.ToString().PadLeft(4) + ": " + result.fields.SystemTitle);
@@ -216,7 +235,7 @@
 
         private static void GenerateDoc(string content)
         {
-            Console.WriteLine($"Generating Document from Workitems...");
+            Console.WriteLine($"Generating Document from Work-items...");
             var wordApp = new Word.Application { Visible = false, DisplayAlerts = Word.WdAlertLevel.wdAlertsNone, ScreenUpdating = false };
             object fileName = Path.Combine(Environment.CurrentDirectory, WordTemplate);
             object missing = Type.Missing;
@@ -250,7 +269,10 @@
 
         private static string GetContent(EFU efu)
         {
-            if (efu == null) return string.Empty;
+            if (efu == null)
+            {
+                return string.Empty;
+            }
 
             var desc = string.IsNullOrWhiteSpace(efu.Description) ? string.Empty : Trim(efu.Description);
             if (efu.Workitemtype.Equals("Epic", StringComparison.OrdinalIgnoreCase))
@@ -282,13 +304,16 @@
 
         public static void ReplaceBookmark(Word.Range rng, string html)
         {
-            var val = string.Format("Version:0.9\nStartHTML:80\nEndHTML:{0,8}\nStartFragment:80\nEndFragment:{0,8}\n", 80 + html.Length) + html + "<";
-            Clipboard.SetData(DataFormats.Html, val);
-            // Clipboard.SetText(val, TextDataFormat.Html);
+            // var val = string.Format("Version:0.9\nStartHTML:80\nEndHTML:{0,8}\nStartFragment:80\nEndFragment:{0,8}\n", 80 + html.Length) + html + "<";
+            // Clipboard.SetData(DataFormats.Html, val);
+            //// Clipboard.SetText(val, TextDataFormat.Html);
+            // rng.PasteSpecial(DataType: Word.WdPasteDataType.wdPasteHTML);
 
-            rng.PasteSpecial(DataType: Word.WdPasteDataType.wdPasteHTML);
             rng.Font.Name = "Segoe UI";
             rng.Font.Size = 11;
+            var file = Path.Combine(Path.GetDirectoryName(Assembly.GetCallingAssembly().CodeBase.Replace("file:///", string.Empty)), "temp.html");
+            File.WriteAllText(file, html);
+            rng.InsertFile(file);
         }
 
         protected static void NAR(object o)
@@ -312,12 +337,16 @@
             using (var client = new HttpClient())
             {
                 var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{PersonalAccessToken}"));
-                client.BaseAddress = new Uri(TeamSite);
+                client.BaseAddress = new Uri(Account);
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
-                if (!path.StartsWith(TeamSite, StringComparison.OrdinalIgnoreCase)) path = $"{project}/_apis/{path}";
-                Trace.TraceInformation($"BaseAddress: {TeamSite} | Path: {path} | Content: {postData}");
+                if (!path.StartsWith(Account, StringComparison.OrdinalIgnoreCase))
+                {
+                    path = $"{project}/_apis/{path}";
+                }
+
+                Trace.TraceInformation($"BaseAddress: {Account} | Path: {path} | Content: {postData}");
                 HttpResponseMessage queryHttpResponseMessage;
 
                 if (string.IsNullOrWhiteSpace(postData))

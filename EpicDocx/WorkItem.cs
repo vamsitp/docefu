@@ -186,7 +186,7 @@ namespace EpicDocx
     {
         public string href { get; set; }
     }
-    
+
     public class WorkitemRelation
     {
         public WiqlWorkitem target { get; set; }
