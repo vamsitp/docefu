@@ -8,7 +8,7 @@
     <PackageOutputPath>./bin</PackageOutputPath>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>Vamsi TP</Authors>
-    <Title>Excellent</Title>
+    <Title>EpicDoc</Title>
     <PackageDescription>Tool to generate Word Doc from Azure DevOps (VSTS) Epics / Features / User-Stories.</PackageDescription>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/vamsitp/epicdoc</PackageProjectUrl>
