@@ -8,22 +8,25 @@
     using System.Linq;
     using System.Net.Http;
     using System.Net.Http.Headers;
+    using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Text;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
+
     using Newtonsoft.Json;
+
     using Word = Microsoft.Office.Interop.Word;
-    using System.Windows.Forms;
 
     public class Program
     {
-        private const string RelationsQueryPath = "wit/wiql?api-version=2.3"; //"queries/Shared Queries/EFUs";
-        private const string WorkItemsQueryPath = "wit/workitems?ids={0}&api-version=2.3"; //"queries/Shared Queries/EFUs";
+        private const string RelationsQueryPath = "wit/wiql?api-version=4.1-preview"; //"queries/Shared Queries/EFUs";
+        private const string WorkItemsQueryPath = "wit/workitems?ids={0}&api-version=4.1-preview"; //"queries/Shared Queries/EFUs";
         private const string SecurityTokensUrl = "_details/security/tokens";
 
-        private static readonly string TeamSite = ConfigurationManager.AppSettings["TeamSite"];
-        private static readonly string TeamProject = ConfigurationManager.AppSettings["TeamProject"];
+        private static readonly string Account = ConfigurationManager.AppSettings["Account"];
+        private static readonly string Project = ConfigurationManager.AppSettings["Project"];
+        private static readonly string AreaPath = ConfigurationManager.AppSettings["AreaPath"];
         private static readonly string WorkItemsQuery = ConfigurationManager.AppSettings["WorkItemsQuery"];
         private static readonly string WordTemplate = ConfigurationManager.AppSettings["WordTemplate"];
         private static readonly string PersonalAccessToken = ConfigurationManager.AppSettings["PersonalAccessToken"];
@@ -40,7 +43,6 @@
             MainAsync(args).Wait();
             GenerateDoc(string.Join(HtmlNewLine, efus.Select(GetContent)));
             Console.ReadLine();
-            Process.Start(Environment.CurrentDirectory);
         }
 
         public static async Task MainAsync(string[] args)
@@ -82,7 +84,7 @@
             {
                 if (string.IsNullOrWhiteSpace(PersonalAccessToken))
                 {
-                    var tokenUrl = $"{TeamSite}{SecurityTokensUrl}";
+                    var tokenUrl = $"{Account}{SecurityTokensUrl}";
                     Console.WriteLine($"PersonalAccessToken is blank in the config!\nHit ENTER to generate it (select 'All Scopes') at: {tokenUrl}");
                     Console.ReadLine();
                     Process.Start(tokenUrl);
@@ -116,7 +118,7 @@
             if (efus == null)
             {
                 efus = new List<EFU>();
-                var wis = await GetData<WiqlRelationList>(RelationsQueryPath, string.Empty, "{\"query\": \"" + string.Format(WorkItemsQuery, TeamProject) + "\"}");
+                var wis = await GetData<WiqlRelationList>(RelationsQueryPath, Project, "{\"query\": \"" + string.Format(WorkItemsQuery, Project, string.IsNullOrWhiteSpace(AreaPath) ? Project : AreaPath) + "\"}");
                 Console.WriteLine($"Workitem relations fetched: {wis.workItemRelations.Length}");
                 var rootItems = wis.workItemRelations.Where(x => x.source == null).ToList();
                 await IterateWorkItems(rootItems, null, wis);
@@ -152,7 +154,7 @@
 
         private static async Task<WorkItem> GetWorkItem(WiqlWorkitem item)
         {
-            var result = await GetData<WorkItem>(item.url, string.Empty, string.Empty);
+            var result = await GetData<WorkItem>(item.url, Project, string.Empty);
             if (result != null)
             {
                 Console.WriteLine(result.id.ToString().PadLeft(4) + $" {result.fields.SystemWorkItemType} - ".PadLeft(14) + result.fields.SystemTitle);
@@ -176,7 +178,7 @@
 
                 if (!string.IsNullOrWhiteSpace(ids))
                 {
-                    var workItems = await GetData<WorkItems>(string.Format(WorkItemsQueryPath, ids), string.Empty, string.Empty);
+                    var workItems = await GetData<WorkItems>(string.Format(WorkItemsQueryPath, ids), Project, string.Empty);
                     if (workItems != null)
                     {
                         return workItems.Items.ToList();
@@ -192,11 +194,11 @@
             if (workItems == null)
             {
                 workItems = new List<WorkItem>();
-                // var wis = await GetData<WiqlList>(WorkItemsQueryPath, TeamProject, string.Empty);
-                var wis = await GetData<WiqlList>(RelationsQueryPath, string.Empty, "{\"query\": \"" + string.Format(WorkItemsQuery, TeamProject) + "\"}");
+                // var wis = await GetData<WiqlList>(WorkItemsQueryPath, Project, string.Empty);
+                var wis = await GetData<WiqlList>(RelationsQueryPath, Project, "{\"query\": \"" + string.Format(WorkItemsQuery, Project, string.IsNullOrWhiteSpace(AreaPath) ? Project : AreaPath) + "\"}");
                 foreach (var wi in wis.workItems)
                 {
-                    var result = await GetData<WorkItem>(wi.url, string.Empty, string.Empty);
+                    var result = await GetData<WorkItem>(wi.url, Project, string.Empty);
                     if (result != null)
                     {
                         Console.WriteLine(result.id.ToString().PadLeft(4) + ": " + result.fields.SystemTitle);
@@ -282,13 +284,16 @@
 
         public static void ReplaceBookmark(Word.Range rng, string html)
         {
-            var val = string.Format("Version:0.9\nStartHTML:80\nEndHTML:{0,8}\nStartFragment:80\nEndFragment:{0,8}\n", 80 + html.Length) + html + "<";
-            Clipboard.SetData(DataFormats.Html, val);
-            // Clipboard.SetText(val, TextDataFormat.Html);
+            // var val = string.Format("Version:0.9\nStartHTML:80\nEndHTML:{0,8}\nStartFragment:80\nEndFragment:{0,8}\n", 80 + html.Length) + html + "<";
+            // Clipboard.SetData(DataFormats.Html, val);
+            //// Clipboard.SetText(val, TextDataFormat.Html);
+            // rng.PasteSpecial(DataType: Word.WdPasteDataType.wdPasteHTML);
 
-            rng.PasteSpecial(DataType: Word.WdPasteDataType.wdPasteHTML);
             rng.Font.Name = "Segoe UI";
             rng.Font.Size = 11;
+            var file = Path.Combine(Path.GetDirectoryName(Assembly.GetCallingAssembly().CodeBase.Replace("file:///", string.Empty)), "temp.html");
+            File.WriteAllText(file, html);
+            rng.InsertFile(file);
         }
 
         protected static void NAR(object o)
@@ -312,12 +317,12 @@
             using (var client = new HttpClient())
             {
                 var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{PersonalAccessToken}"));
-                client.BaseAddress = new Uri(TeamSite);
+                client.BaseAddress = new Uri(Account);
                 client.DefaultRequestHeaders.Accept.Clear();
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
-                if (!path.StartsWith(TeamSite, StringComparison.OrdinalIgnoreCase)) path = $"{project}/_apis/{path}";
-                Trace.TraceInformation($"BaseAddress: {TeamSite} | Path: {path} | Content: {postData}");
+                if (!path.StartsWith(Account, StringComparison.OrdinalIgnoreCase)) path = $"{project}/_apis/{path}";
+                Trace.TraceInformation($"BaseAddress: {Account} | Path: {path} | Content: {postData}");
                 HttpResponseMessage queryHttpResponseMessage;
 
                 if (string.IsNullOrWhiteSpace(postData))
