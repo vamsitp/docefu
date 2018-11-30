@@ -1,5 +1,5 @@
 ## epicdoc
-Generate Word Doc from Azure DevOps (VSTS) Epics / Features / User-Stories
+> Generate Word Doc from Azure DevOps (VSTS) Epics / Features / User-Stories
 ---
 ```cmd
 # Publish package to nuget.org
