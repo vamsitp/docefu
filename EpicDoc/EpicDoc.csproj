@@ -4,22 +4,20 @@
     <TargetFramework>netcoreapp2.1</TargetFramework>
     <PackAsTool>true</PackAsTool>
     <IsTool>true</IsTool>
-    <ToolCommandName>epicdocx</ToolCommandName>
+    <ToolCommandName>epicdoc</ToolCommandName>
     <PackageOutputPath>./bin</PackageOutputPath>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>Vamsi TP</Authors>
     <Title>Excellent</Title>
     <PackageDescription>Tool to generate Word Doc from Azure DevOps (VSTS) Epics / Features / User-Stories.</PackageDescription>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/vamsitp/epicdocx</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/vamsitp/epicdocx</RepositoryUrl>
-    <PackageTags>VSTS;Azure DevOps;Word;docx;Work-items;User-stories;Features</PackageTags>
+    <PackageProjectUrl>https://github.com/vamsitp/epicdoc</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/vamsitp/epicdoc</RepositoryUrl>
+    <PackageTags>VSTS;Azure DevOps;Word;docx;doc;Work-items;User-stories;Features</PackageTags>
     <Company>Microsoft</Company>
     <Version>1.0.0</Version>
-    <StartupObject>EpicDocx.Program</StartupObject>
+    <StartupObject>EpicDoc.Program</StartupObject>
     <ApplicationIcon />
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <NoWarn>1701;1702;NU1701</NoWarn>
   </PropertyGroup>
   <ItemGroup>

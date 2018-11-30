@@ -1,2 +1,2 @@
-# epicdocx
+# EpicDoc
 Generate Word Doc from Azure DevOps (VSTS) Epics / Features / User-Stories

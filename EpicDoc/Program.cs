@@ -1,4 +1,4 @@
-﻿namespace EpicDocx
+﻿namespace EpicDoc
 {
     using System;
     using System.Collections.Generic;
@@ -89,7 +89,7 @@
                     Console.WriteLine($"PersonalAccessToken is blank in the config!\nHit ENTER to generate it (select 'All Scopes') at: {tokenUrl}");
                     Console.ReadLine();
                     Process.Start(tokenUrl);
-                    Console.WriteLine($"Update 'PersonalAccessToken' value in EpicDocx.exe.config with the generated/copied token and restart the app.");
+                    Console.WriteLine($"Update 'PersonalAccessToken' value in EpicDoc.exe.config with the generated/copied token and restart the app.");
                 }
                 else
                 {
