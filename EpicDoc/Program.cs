@@ -61,7 +61,7 @@
                     }
                     else
                     {
-                        ColorConsole.WriteLine($"{WorkItemsJson} not found! Fetching details from VSTS...".Yellow());
+                        ColorConsole.WriteLine($"{WorkItemsJson} not found! Fetching details from Azure DevOps...".Yellow());
                         await ProcessWorkItems();
                     }
                 }
@@ -274,6 +274,8 @@
             wordApp.Selection.Range.Font.Name = "Segoe UI";
             wordApp.Selection.Range.Font.Size = 10;
 
+            wordDoc.TrackRevisions = true;
+            //// var translate = wordDoc.Research.SetLanguagePair(Word.WdLanguageID.wdSpanishModernSort, Word.WdLanguageID.wdEnglishUS);
             wordDoc.SaveAs(ref saveTo, ref format);
             wordDoc.Close(ref missing, ref missing, ref missing);
             NAR(wordDoc);
@@ -294,16 +296,16 @@
             var desc = string.IsNullOrWhiteSpace(efu.Description) ? string.Empty : Trim(efu.Description);
             if (efu.Workitemtype.Equals("Epic", StringComparison.OrdinalIgnoreCase))
             {
-                return $"<div style=\"color:#969696\"><b>" + efu.Id + ". " + (efu.Title?.ToUpperInvariant() ?? string.Empty) + "</b></div>" + desc;
+                return $"<hr style=\"border:0;height:1px\"/><br/><div style=\"color:#242424\"><b>E-" + efu.Id + ". <u>" + (efu.Title?.ToUpperInvariant() ?? string.Empty) + "</u></b></div>" + desc;
             }
 
             if (efu.Workitemtype.Equals("Feature", StringComparison.OrdinalIgnoreCase))
             {
-                return $"<div style=\"color:#969696\">" + efu.Id + ". " + (efu.Title?.ToUpperInvariant() ?? string.Empty) + "</div>" + desc;
+                return $"<div style=\"color:#727272\"><b>F-" + efu.Id + ". " + (efu.Title?.ToUpperInvariant() ?? string.Empty) + "</b></div>" + desc;
             }
 
-            var acceptance = string.IsNullOrWhiteSpace(efu.AcceptanceCriteria) ? string.Empty : Trim(efu.AcceptanceCriteria);
-            return $"<div style=\"color:{HeadersColor}\">" + efu.Id + ". " + (efu.Title ?? string.Empty) + "</div>" + desc + "<b>Acceptance Criteria</b>: " + acceptance + HtmlNewLine;
+            var acceptance = string.IsNullOrWhiteSpace(efu.AcceptanceCriteria?.Trim()) ? string.Empty : "<b>Acceptance Criteria</b>: " + Trim(efu.AcceptanceCriteria);
+            return $"<div style=\"color:{HeadersColor}\">U-" + efu.Id + ". " + (efu.Title ?? string.Empty) + "</div>" + desc + acceptance;
         }
 
         private static string Trim(string content)
