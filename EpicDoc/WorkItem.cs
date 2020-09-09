@@ -209,6 +209,7 @@ namespace EpicDoc
         public List<int> Children { get; set; }
         public int? Parent { get; set; }
         public string Tags { get; set; }
+        public string Url { get; set; }
     }
 
     public class WorkItems

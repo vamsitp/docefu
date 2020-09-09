@@ -1,6 +1,23 @@
 ## epicdoc
-> Generate Word Doc (or) Powerpoint Deck from Azure DevOps (VSTS) Epics / Features / User-Stories
+> Generate Word-doc (or) Powerpoint-deck from Azure DevOps (VSTS) Epics / Features / User-Stories (PBIs)
+
 ---
+
+### usage
+```cmd
+# word
+epicdoc /w 
+
+# ppt
+epicdoc /p
+
+# offline (genrate both word and ppt for previously fetched data)
+epicdoc /o
+
+```
+
+---
+
 ```cmd
 # Publish package to nuget.org
 nuget push ./bin/epicdoc.1.0.0.nupkg -ApiKey <key> -Source https://api.nuget.org/v3/index.json
