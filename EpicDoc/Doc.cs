@@ -21,7 +21,7 @@
             string content = string.Join(HtmlNewLine, efus.Select(GetContent));
             ColorConsole.WriteLine($"Generating Document from Work-items...".Cyan());
             var wordApp = new Word.Application { Visible = false, DisplayAlerts = Word.WdAlertLevel.wdAlertsNone, ScreenUpdating = false };
-            object fileName = Path.Combine(Environment.CurrentDirectory, WordTemplate);
+            object fileName = WordTemplate.GetFullPath();
             object missing = Type.Missing;
             var wordDoc = wordApp.Documents.Open(
                 ref fileName,
@@ -34,7 +34,7 @@
             var bookmark = wordDoc.Bookmarks.get_Item(1);
             ReplaceBookmark(bookmark.Range, value);
 
-            object saveTo = "FuncSpec (UserStories).docx".GetFullPath();
+            object saveTo = Path.Combine(Environment.CurrentDirectory, "FuncSpec (UserStories).docx");
             object format = Word.WdSaveFormat.wdFormatXMLDocument;
 
             object start = wordDoc.Content.Start;

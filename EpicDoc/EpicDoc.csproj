@@ -15,7 +15,7 @@
     <RepositoryUrl>https://github.com/vamsitp/epicdoc</RepositoryUrl>
     <PackageTags>VSTS;Azure DevOps;Word;docx;doc;Work-items;User-stories;Features</PackageTags>
     <Company>Microsoft</Company>
-    <Version>1.1.0</Version>
+    <Version>1.1.2</Version>
     <StartupObject>EpicDoc.Program</StartupObject>
     <ApplicationIcon />
     <NoWarn>1701;1702;NU1701</NoWarn>
@@ -36,11 +36,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="FuncSpec.docx">
+    <Content Include="FuncSpec.docx">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Include="office.dll">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
+    <Content Include="office.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>

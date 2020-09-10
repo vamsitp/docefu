@@ -34,8 +34,6 @@
                 Doc.Generate(efus);
                 Deck.Generate(efus);
             }
-
-            Console.ReadLine();
         }
 
         public static async Task Execute(string[] args)
